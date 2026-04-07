@@ -6,6 +6,25 @@ param(
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# Skip if a terminal is in the foreground
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int pid);
+}
+"@ -ErrorAction SilentlyContinue
+
+try {
+    $hwnd = [Win32]::GetForegroundWindow()
+    $pid = 0
+    [Win32]::GetWindowThreadProcessId($hwnd, [ref]$pid) | Out-Null
+    $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+    $terminals = @("powershell", "pwsh", "WindowsTerminal", "cmd", "conhost", "mintty", "bash")
+    if ($terminals -contains $proc.ProcessName) { exit 0 }
+} catch {}
+
 # Play notification sound
 [System.Media.SystemSounds]::Asterisk.Play()
 
